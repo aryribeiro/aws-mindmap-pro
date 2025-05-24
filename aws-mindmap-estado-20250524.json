@@ -1,0 +1,163 @@
+{
+  "nodes": [
+    {
+      "id": "aws_central_logo_node",
+      "name": "AWS",
+      "category": "Central",
+      "description": "Amazon Web Services",
+      "x": 800,
+      "y": 400,
+      "isCentral": true,
+      "parentId": null
+    },
+    {
+      "id": "Amazon Athena",
+      "name": "Amazon Athena",
+      "category": "Analytics",
+      "description": "Serviço de consultas SQL interativas em dados do S3. Serverless com cobrança por query.",
+      "x": 1066.0347415253195,
+      "y": 396.32818603515625,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "Amazon FinSpace",
+      "name": "Amazon FinSpace",
+      "category": "Analytics",
+      "description": "Plataforma de dados para serviços financeiros. Prepara e analisa dados regulamentados.",
+      "x": 1039.8912910938466,
+      "y": 487.7130050695885,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "AWS Data Exchange",
+      "name": "AWS Data Exchange",
+      "category": "Analytics",
+      "description": "Marketplace para datasets de terceiros. Facilita acesso a dados externos para analytics.",
+      "x": 1017.7639130990143,
+      "y": 618.8234797712491,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "Amazon S3 Access Points",
+      "name": "Amazon S3 Access Points",
+      "category": "Armazenamento",
+      "description": "Pontos de acesso nomeados para buckets S3. Simplifica políticas de acesso complexas.",
+      "x": 800,
+      "y": 600.2230170607954,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "AWS S3 (Simple Storage Service)",
+      "name": "AWS S3 (Simple Storage Service)",
+      "category": "Armazenamento",
+      "description": "Armazenamento de objetos com 99.999999999% de durabilidade. Base para backup, analytics e distribuição.",
+      "x": 523.3648339151275,
+      "y": 606.9176786841908,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "Amazon Aurora",
+      "name": "Amazon Aurora",
+      "category": "Banco de Dados",
+      "description": "Banco relacional com performance superior. Compatível com MySQL e PostgreSQL, com backup contínuo.",
+      "x": 499.8057567164924,
+      "y": 498.85123746362694,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "Amazon Keyspaces",
+      "name": "Amazon Keyspaces",
+      "category": "Banco de Dados",
+      "description": "Apache Cassandra gerenciado com alta disponibilidade. Ideal para aplicações NoSQL escaláveis.",
+      "x": 474.56420869315696,
+      "y": 358.6919250488281,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "AWS FSx",
+      "name": "AWS FSx",
+      "category": "Armazenamento",
+      "description": "Sistemas de arquivos de alta performance. Otimizado para workloads Windows e computação de alta performance (HPC).",
+      "x": 477.3944934751213,
+      "y": 269.03005039739435,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "Amazon MemoryDB for Redis",
+      "name": "Amazon MemoryDB for Redis",
+      "category": "Banco de Dados",
+      "description": "Banco in-memory durável compatível com Redis. Combina performance e persistência.",
+      "x": 583.5981674049681,
+      "y": 181.7375731848279,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "Amazon CloudSearch",
+      "name": "Amazon CloudSearch",
+      "category": "Busca",
+      "description": "Serviço de busca gerenciada com relevância customizável. Oferece indexação automática e faceted search.",
+      "x": 702.696533203125,
+      "y": 110.45634026586637,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "AWS EC2 (Elastic Compute Cloud)",
+      "name": "AWS EC2 (Elastic Compute Cloud)",
+      "category": "Computação",
+      "description": "Servidores virtuais escaláveis na nuvem. Oferece compute sob demanda com diversos tipos de instância.",
+      "x": 938.9839306147405,
+      "y": 193.62867036220217,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": false
+    },
+    {
+      "id": "Minha Anotação",
+      "name": "Minha Anotação",
+      "category": "Custom Notes",
+      "description": "Nó customizado",
+      "x": 1161.8073517216903,
+      "y": 281.14918882426707,
+      "parentId": "aws_central_logo_node",
+      "isCentral": false,
+      "isCustom": true
+    },
+    {
+      "id": "Minha Anotação2",
+      "name": "Minha Anotação2",
+      "category": "Custom Notes",
+      "description": "Nó customizado",
+      "x": 1128.3334344572368,
+      "y": 91.94260299235671,
+      "parentId": "AWS EC2 (Elastic Compute Cloud)",
+      "isCentral": false,
+      "isCustom": true
+    }
+  ],
+  "viewBox": {
+    "x": 0,
+    "y": 0,
+    "width": 1600,
+    "height": 800
+  }
+}
