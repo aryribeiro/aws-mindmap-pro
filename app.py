@@ -6,7 +6,7 @@ import json
 
 # Configuração da página
 st.set_page_config(
-    page_title="AWS MindMap - Mapa mental",
+    page_title="AWS MindMap - Mapa Mental",
     page_icon="🧠",
     layout="wide"
 )
@@ -259,7 +259,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
     <body>
         <div class="container">
             <div class="header">
-                <h1>🧠 AWS MindMap pro - Mapa mental</h1>
+                <h1>🧠 AWS MindMap pro - Mapa Mental</h1>
             </div>
 
             <div class="info-bar">
@@ -1525,7 +1525,7 @@ st.markdown("""
 
 st.markdown("""
 <div style="text-align: center;">
-    <h4>AWS MindMap pro: o seu Mapa mental aberto e livre, 100% gratuito.</h4>
+    <h4>AWS MindMap pro: o seu mapa mental aberto e livre, 100% gratuito.</h4>
     💬 Por <strong>Ary Ribeiro</strong>. Contato, através do email: <a href="mailto:aryribeiro@gmail.com">aryribeiro@gmail.com</a><br>
     <em>Obs.: o web app foi testado apenas em computador.</em>
 </div>
