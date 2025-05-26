@@ -1,4 +1,6 @@
-# AWS Mind Map pro 🧠
+Obs.: caso o app esteja no modo "sleeping" (dormindo) ao entrar, basta clicar no botão que estará disponível e aguardar, para ativar o mesmo. 
+![print](https://github.com/user-attachments/assets/e221115c-2585-4825-aa4b-8d577b49612e)
+# 🧠AWS Mind Map pro
 
 O AWS Mind Map pro é um web app interativo construído com Python e Streamlit, projetado para ajudar alunos/usuários AWS a visualizar serviços da AWS e suas relações em um formato de mapa mental dinâmico. Os dados dos serviços são carregados a partir de um arquivo CSV, e os usuários podem interagir com o mapa, adicionar notas, salvar seu progresso e exportar o mapa mental como um documento PDF.
 
@@ -77,14 +79,16 @@ Após a configuração e instalação das dependências:
     ```
 3.  A aplicação será aberta automaticamente no seu navegador web padrão.
 
-## 🛠️ Estrutura de Arquivos Esperada
-
-## 🛠️ Estrutura de Arquivos Esperada
+### 🛠️ Estrutura de Arquivos Esperada
 
 ├── app.py                 # Script principal da aplicação Streamlit
+
 ├── services.csv           # Arquivo CSV com os dados dos serviços AWS
+
 ├── awslogo.png            # (Opcional) Imagem do logo da AWS
+
 ├── requirements.txt       # Dependências Python
+
 └── README.md              # Este arquivo
 
-## Por Ary Ribeiro | aryribeiro@gmail.com
+#### Por Ary Ribeiro | aryribeiro@gmail.com
