@@ -56,7 +56,7 @@ O AWS Mind Map pro é um web app interativo construído com Python e Streamlit, 
     ```
 
 4.  **Preparar Arquivo de Dados CSV:**
-    * Crie um arquivo CSV (ex: `servicos_aws.csv`) na pasta raiz do projeto.
+    * O repositório já inclui o arquivo `services.csv` com os serviços AWS. Para usar dados próprios, substitua-o por outro CSV na pasta raiz do projeto.
     * **Colunas Mandatórias (ou variações que o app tentará mapear):**
         * `Nome do Servico` (ou `Service`, `Servico`)
         * `Categoria` (ou `Category`)
@@ -82,13 +82,9 @@ Após a configuração e instalação das dependências:
 ### 🛠️ Estrutura de Arquivos Esperada
 
 ├── app.py                 # Script principal da aplicação Streamlit
-
 ├── services.csv           # Arquivo CSV com os dados dos serviços AWS
-
 ├── awslogo.png            # (Opcional) Imagem do logo da AWS
-
 ├── requirements.txt       # Dependências Python
-
 └── README.md              # Este arquivo
 
 #### Por Ary Ribeiro | aryribeiro@gmail.com

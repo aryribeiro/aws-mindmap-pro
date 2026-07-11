@@ -11,69 +11,75 @@ st.set_page_config(
     layout="wide"
 )
 
+# Pasta do app: caminhos independem do diretório de onde o streamlit foi executado
+BASE_DIR = Path(__file__).parent
+
+@st.cache_data
 def load_csv_data():
-    """Carrega automaticamente o CSV da pasta raiz"""
+    """Carrega o CSV de serviços da pasta do app. Retorna (df, mensagem_de_erro)."""
+    csv_files = sorted(BASE_DIR.glob("*.csv"))
+    if not csv_files:
+        return pd.DataFrame(), "Nenhum arquivo CSV encontrado na pasta do projeto."
+
+    csv_file = csv_files[0]
     try:
-        csv_files = list(Path(".").glob("*.csv"))
-        if csv_files:
-            csv_file = csv_files[0]
-            df = pd.read_csv(csv_file)
-
-            column_mapping = {}
-            for col in df.columns:
-                col_lower_stripped = col.lower().strip().replace("ç", "c").replace("ã", "a")
-                if 'nome do servico' == col_lower_stripped or 'service' == col_lower_stripped or 'servico' == col_lower_stripped:
-                    column_mapping[col] = 'Service'
-                elif 'categoria' == col_lower_stripped or 'category' == col_lower_stripped:
-                    column_mapping[col] = 'Category'
-                elif 'descricao' == col_lower_stripped or 'description' == col_lower_stripped or 'descric' in col_lower_stripped :
-                    column_mapping[col] = 'Description'
-
-            df = df.rename(columns=column_mapping)
-
-            required_cols = ['Service', 'Category', 'Description']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                st.error(f"CSV deve conter as colunas: {missing_cols}. Encontradas: {list(df.columns)}")
-                return pd.DataFrame(), ""
-
-            df = df.dropna(subset=['Service']).drop_duplicates(subset=['Service'])
-            df['Service'] = df['Service'].astype(str).str.strip()
-            df = df[df['Service'] != '']
-
-            df = df.fillna('')
-
-            return df, csv_file.name
-        else:
-            st.error("Nenhum arquivo CSV encontrado na pasta raiz do projeto.")
-            return pd.DataFrame(), ""
+        df = pd.read_csv(csv_file)
     except Exception as e:
-        st.error(f"Erro ao carregar ou processar o CSV: {e}")
-        return pd.DataFrame(), ""
+        return pd.DataFrame(), f"Não foi possível ler o arquivo '{csv_file.name}': {e}"
 
+    column_mapping = {}
+    for col in df.columns:
+        col_norm = col.lower().strip().replace("ç", "c").replace("ã", "a")
+        if col_norm in ('nome do servico', 'service', 'servico'):
+            column_mapping[col] = 'Service'
+        elif col_norm in ('categoria', 'category'):
+            column_mapping[col] = 'Category'
+        elif col_norm in ('descricao', 'description') or 'descric' in col_norm:
+            column_mapping[col] = 'Description'
+
+    df = df.rename(columns=column_mapping)
+
+    required_cols = ['Service', 'Category', 'Description']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        return pd.DataFrame(), (
+            f"O CSV '{csv_file.name}' deve conter as colunas {missing_cols}. "
+            f"Colunas encontradas: {list(df.columns)}"
+        )
+
+    df = df.dropna(subset=['Service']).drop_duplicates(subset=['Service'])
+    df['Service'] = df['Service'].astype(str).str.strip()
+    df = df[df['Service'] != '']
+    df = df.fillna('')
+
+    if df.empty:
+        return pd.DataFrame(), f"O CSV '{csv_file.name}' não contém nenhum serviço válido."
+
+    return df, None
+
+@st.cache_data
 def get_aws_logo_base64():
-    """Converte a logo AWS para base64 e retorna base64 e extensão."""
-    try:
-        logo_names = ["awslogo.png", "aws-logo.png", "aws.png", "logo.png",
-                     "awslogo.jpg", "aws-logo.jpg", "aws.jpg", "logo.jpg",
-                     "awslogo.svg", "aws-logo.svg", "aws.svg", "logo.svg"]
+    """Converte a logo AWS para base64 e retorna (base64, extensão)."""
+    logo_names = ["awslogo.png", "aws-logo.png", "aws.png", "logo.png",
+                 "awslogo.jpg", "aws-logo.jpg", "aws.jpg", "logo.jpg",
+                 "awslogo.svg", "aws-logo.svg", "aws.svg", "logo.svg"]
 
-        for logo_name in logo_names:
-            logo_path = Path(logo_name)
-            if logo_path.exists():
-                with open(logo_path, "rb") as f:
-                    logo_data = f.read()
-                return base64.b64encode(logo_data).decode(), logo_path.suffix.lower()
-        return None, None
-    except Exception as e:
-        st.error(f"Erro ao carregar logo: {e}")
-        return None, None
+    for logo_name in logo_names:
+        logo_path = BASE_DIR / logo_name
+        if logo_path.exists():
+            try:
+                logo_data = logo_path.read_bytes()
+            except OSError:
+                continue
+            return base64.b64encode(logo_data).decode(), logo_path.suffix.lower()
+    return None, None
 
-def create_mindmap_html(df, csv_filename, logo_info_tuple):
+def create_mindmap_html(df, logo_info_tuple):
     """Cria o HTML do mapa mental com dados do CSV"""
 
     services_data = df.to_dict('records')
-    services_json = json.dumps(services_data)
+    # Escapa "</" para que conteúdo do CSV jamais encerre a tag <script> do HTML gerado
+    services_json = json.dumps(services_data).replace("</", "<\\/")
 
     logo_base64_str, file_extension_str = logo_info_tuple if logo_info_tuple else (None, None)
 
@@ -99,7 +105,6 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>AWS MindMap pro</title>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
         <style>
             body {{
@@ -209,7 +214,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
             .canvas-container {{
                 flex-grow: 1;
                 position: relative;
-                /* overflow: hidden; // Managed by JS during PDF export */
+                overflow: hidden;
                 background: #f8f9fa;
             }}
 
@@ -237,6 +242,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
             .notification.show {{ transform: translateX(0); opacity: 1; }}
             .notification.error {{ background: #dc3545; }}
             .notification.warning {{ background: #ffc107; color: #333; }}
+            .notification.info {{ background: #17a2b8; }}
 
 
             .tooltip {{
@@ -309,16 +315,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
             const rawCsvData = {services_json};
             const AWS_CENTER_ID = 'aws_central_logo_node';
 
-            let _resolvedCenterNodeSvgContent;
-            const actualSvgStringFromPython = {center_node_svg_for_js};
-
-            if (typeof actualSvgStringFromPython === 'string' && actualSvgStringFromPython.trim() !== '') {{
-                _resolvedCenterNodeSvgContent = actualSvgStringFromPython;
-            }} else {{
-                console.warn("[MINDMAP WARN] Conteúdo da logo do Python não é uma string SVG válida ou está vazia. Conteúdo:", actualSvgStringFromPython, ". Usando fallback.");
-                _resolvedCenterNodeSvgContent = '<text id="awsCenterLogoText_Fallback" data-type="text" x="0" y="8" text-anchor="middle" fill="#232F3E" font-size="24" font-weight="bold" style="cursor: pointer;">AWS (FB)</text>';
-            }}
-            const centerNodeSvgContentFromPython = _resolvedCenterNodeSvgContent;
+            const centerNodeSvgContentFromPython = {center_node_svg_for_js};
 
 
             class AWSMindMapPro {{
@@ -354,29 +351,46 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     this.currentViewBox = {{ ...this.initialViewBox }};
                     this.canvas.setAttribute('viewBox', `0 0 1600 800`);
 
+                    // Cores por categoria — chaves espelham exatamente as categorias do services.csv
                     this.categoryColors = {{
-                        'Machine Learning': '#8E44AD',
-                        'Suporte ao Desenvolvedor': '#3498DB',
-                        'Ferramentas de Desenvolvedor': '#2ECC71',
-                        'Computação': '#E74C3C',
-                        'Rede e Entrega de Conteúdo': '#F39C12',
-                        'Migração e Transferência': '#9B59B6',
-                        'Gerenciamento e Governança': '#34495E',
-                        'Segurança e Identidade': '#E67E22',
-                        'Conformidade': '#1ABC9C',
-                        'Armazenamento': '#D35400',
-                        'Integração de Aplicações': '#16A085',
-                        'Banco de Dados': '#27AE60',
                         'Analytics': '#7D3C98',
-                        'IoT': '#FF6B35',
+                        'Armazenamento': '#D35400',
+                        'Banco de Dados': '#27AE60',
                         'Blockchain': '#6C5CE7',
-                        'Quantum': '#A29BFE',
-                        'Containers': '#00B894',
-                        'Serverless': '#FDCB6E',
-                        'Mobile': '#E17055',
-                        'Custom Notes': '#A6B1E1',
-                        'Anotações': '#A6B1E1',
-                        'Observações': '#A6B1E1',
+                        'Busca': '#00A8A8',
+                        'Centro de Atendimento': '#E84393',
+                        'Computação': '#E74C3C',
+                        'Computação Quântica': '#7B68EE',
+                        'Comunicação': '#0984E3',
+                        'Conformidade': '#1ABC9C',
+                        'Desenvolvimento de Jogos': '#C0392B',
+                        'Ferramentas de Desenvolvedor': '#2ECC71',
+                        'Geoespacial': '#00B894',
+                        'Gerenciamento de Custos': '#B8860B',
+                        'Gerenciamento e Governança': '#34495E',
+                        'Híbrido': '#636E72',
+                        'Integração de Aplicações': '#16A085',
+                        'Internet das Coisas': '#FF6B35',
+                        'Machine Learning': '#8E44AD',
+                        'Marketing': '#C2185B',
+                        'Migração e Transferência': '#9B59B6',
+                        'Monitoramento': '#2D98DA',
+                        'Mídia': '#E17055',
+                        'Otimização': '#20A05B',
+                        'Produtividade': '#3867D6',
+                        'Realidade Virtual/Aumentada': '#8854D0',
+                        'Rede e Entrega de Conteúdo': '#F39C12',
+                        'Robótica': '#778CA3',
+                        'Satélite': '#4B6584',
+                        'Saúde': '#EB3B5A',
+                        'Segurança e Identidade': '#E67E22',
+                        'Suporte': '#0FB9B1',
+                        'Suporte ao Desenvolvedor': '#3498DB',
+                        'Terceiros': '#8395A7',
+                        'Usuário Final': '#576574',
+                        'Custom Notes': '#5C6BC0',
+                        'Anotações': '#5C6BC0',
+                        'Observações': '#5C6BC0',
                         'Outros': '#7F8C8D'
                     }};
 
@@ -513,7 +527,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                         }}
                     }});
 
-                    this.canvas.addEventListener('mouseup', () => {{
+                    const endCanvasInteraction = () => {{
                         if (this.draggedNode) {{
                             this.draggedNode = null;
                             this.canvas.style.cursor = 'grab';
@@ -522,17 +536,9 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                             this.isPanning = false;
                             this.canvas.style.cursor = 'grab';
                         }}
-                    }});
-                     this.canvas.addEventListener('mouseleave', () => {{
-                        if (this.draggedNode) {{
-                            this.draggedNode = null;
-                             this.canvas.style.cursor = 'grab';
-                        }}
-                        if (this.isPanning) {{
-                            this.isPanning = false;
-                            this.canvas.style.cursor = 'grab';
-                        }}
-                    }});
+                    }};
+                    this.canvas.addEventListener('mouseup', endCanvasInteraction);
+                    this.canvas.addEventListener('mouseleave', endCanvasInteraction);
                 }}
 
                 getMousePosition(evt, CTM) {{
@@ -549,6 +555,10 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                         const mousePos = this.getMousePosition(e, CTM);
 
                         const scaleFactor = e.deltaY > 0 ? 1.1 : 0.9;
+
+                        // Limita o zoom para o mapa não "sumir" (muito longe) nem estourar precisão (muito perto)
+                        const newWidth = this.currentViewBox.width * scaleFactor;
+                        if (newWidth < 200 || newWidth > 30000) return;
 
                         this.currentViewBox.x = mousePos.x - (mousePos.x - this.currentViewBox.x) * scaleFactor;
                         this.currentViewBox.y = mousePos.y - (mousePos.y - this.currentViewBox.y) * scaleFactor;
@@ -599,9 +609,16 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                         this.showNotification("Nome do nó não pode ser vazio.", "warning");
                         return;
                     }}
+                    const trimmedName = name.trim();
 
-                    if (this.nodes.has(name.trim())) {{
-                        this.showNotification(`Nó com nome "${{name.trim()}}" já existe. Escolha outro nome.`, "error");
+                    if (this.nodes.has(trimmedName)) {{
+                        this.showNotification(`Nó com nome "${{trimmedName}}" já existe. Escolha outro nome.`, "error");
+                        return;
+                    }}
+
+                    // O nome vira id de elemento SVG; evita colisão com ids fixos da página (notification, tooltip etc.)
+                    if (document.getElementById(trimmedName)) {{
+                        this.showNotification(`O nome "${{trimmedName}}" é reservado. Escolha outro nome.`, "error");
                         return;
                     }}
 
@@ -610,10 +627,11 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                         this.showNotification("Categoria não pode ser vazia.", "warning");
                         return;
                     }}
-                    const description = prompt("Descrição/Detalhes:", "");
+                    // prompt() retorna null se o usuário cancelar — trata como descrição vazia
+                    const description = prompt("Descrição/Detalhes:", "") || "";
 
                     const serviceData = {{
-                        Service: name.trim(),
+                        Service: trimmedName,
                         Category: category.trim(),
                         Description: description.trim(),
                         isCustom: true
@@ -621,7 +639,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
 
                     const parentId = this.selectedNodeId || AWS_CENTER_ID;
                     this.addNode(serviceData, parentId);
-                    this.showNotification(`Nó customizado "${{name.trim()}}" adicionado.`, "success");
+                    this.showNotification(`Nó customizado "${{trimmedName}}" adicionado.`, "success");
                 }}
 
 
@@ -672,12 +690,17 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     }}
 
                     const childrenOfParent = Array.from(this.nodes.values()).filter(n => n.parentId === parentId);
-                    const angleIncrement = Math.PI / 6; 
-                    const baseRadius = currentParentNode.isCentral ? 180 : 120;
-                    const angle = childrenOfParent.length * angleIncrement + (currentParentNode.isCentral ? 0 : Math.random() * 0.1);
+                    // Distribui filhos em anéis concêntricos: 12 posições por anel; anéis extras
+                    // ficam mais distantes e com ângulo deslocado para não sobrepor o anel anterior
+                    const positionsPerRing = 12;
+                    const childIndex = childrenOfParent.length;
+                    const ring = Math.floor(childIndex / positionsPerRing);
+                    const angle = (childIndex % positionsPerRing) * (2 * Math.PI / positionsPerRing)
+                                  + ring * (Math.PI / positionsPerRing);
+                    const baseRadius = (currentParentNode.isCentral ? 180 : 120) + ring * 90;
 
-                    const x = currentParentNode.x + Math.cos(angle) * (baseRadius + Math.random() * 30);
-                    const y = currentParentNode.y + Math.sin(angle) * (baseRadius + Math.random() * 30);
+                    const x = currentParentNode.x + Math.cos(angle) * (baseRadius + Math.random() * 20);
+                    const y = currentParentNode.y + Math.sin(angle) * (baseRadius + Math.random() * 20);
 
                     const newNodeData = {{
                         id: serviceData.Service,
@@ -804,7 +827,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                              displayText = "..."; // Nenhum espaço para texto
                         }}
                         
-                        if (displayText.replace(/\./g, '').length === 0 && fullNodeName.length > 0) {{
+                        if (displayText.replace(/\\./g, '').length === 0 && fullNodeName.length > 0) {{
                            displayText = fullNodeName.substring(0,1) + (fullNodeName.length > 1 ? "..." : "");
                         }}
 
@@ -886,14 +909,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     const nodeElement = document.getElementById(nodeIdToDelete);
                     if (nodeElement) nodeElement.remove();
 
-                    const edgesToRemove = [];
-                    this.edges.forEach((edge, edgeId) => {{
-                        if (edge.source === nodeIdToDelete || edge.target === nodeIdToDelete) {{
-                            edgesToRemove.push(edgeId);
-                            document.getElementById(edgeId)?.remove();
-                        }}
-                    }});
-                    edgesToRemove.forEach(edgeId => this.edges.delete(edgeId));
+                    this._removeEdgesConnectedTo(nodeIdToDelete);
 
                     this.nodes.forEach(node => {{
                         if (node.parentId === nodeIdToDelete) {{
@@ -932,11 +948,19 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     this.renderEdge(edgeData);
                 }}
 
+                _nodeEdgeRadius(node) {{
+                    if (node.isCentral) return 40;
+                    const group = document.getElementById(node.id);
+                    const rect = group ? group.querySelector('rect') : null;
+                    if (rect) return (parseFloat(rect.getAttribute('width')) || 100) / 2.2;
+                    return 25;
+                }}
+
                 renderEdge(edgeData) {{
                     const sourceNode = this.nodes.get(edgeData.source);
                     const targetNode = this.nodes.get(edgeData.target);
                     if (!sourceNode || !targetNode) return;
-                    
+
                     let line = document.getElementById(edgeData.id);
                     if (!line) {{
                         line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
@@ -948,53 +972,40 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     const dy = targetNode.y - sourceNode.y;
                     const dist = Math.sqrt(dx*dx + dy*dy);
 
-                    const sourceGroup = document.getElementById(sourceNode.id);
-                    let sourceRadius = sourceNode.isCentral ? 40 : 25;
-                    if (sourceGroup && sourceGroup.firstChild && typeof sourceGroup.firstChild.getBBox === 'function') {{
-                        try {{
-                           const bbox = sourceGroup.firstChild.getBBox();
-                           sourceRadius = Math.max(bbox.width, bbox.height) / 2 * 0.8; // 80% of max dimension
-                        }} catch(e) {{ /* ignore error */ }}
-                    }}
-                    if (!sourceNode.isCentral && sourceGroup) {{
-                        const rect = sourceGroup.querySelector('rect');
-                        if (rect) sourceRadius = (parseFloat(rect.getAttribute('width')) || 100) / 2.2; // Ajustado
-                    }}
+                    const sourceRadius = this._nodeEdgeRadius(sourceNode);
+                    const targetRadius = this._nodeEdgeRadius(targetNode);
 
-
-                    const targetGroup = document.getElementById(targetNode.id);
-                    let targetRadius = targetNode.isCentral ? 40 : 25;
-                     if (!targetNode.isCentral && targetGroup) {{
-                        const rect = targetGroup.querySelector('rect');
-                        if (rect) targetRadius = (parseFloat(rect.getAttribute('width')) || 100) / 2.2; // Ajustado
+                    // Nós sobrepostos: apenas oculta a linha, mantendo a aresta nos dados —
+                    // ela reaparece assim que os nós se afastarem
+                    if (dist < (sourceRadius + targetRadius) || dist < 10 ) {{
+                        line.setAttribute('visibility', 'hidden');
+                        return;
                     }}
-
-                    if (dist < (sourceRadius + targetRadius) || dist < 10 ) {{ // Aumentar distância mínima
-                        if (line.parentNode) line.remove(); 
-                        this.edges.delete(edgeData.id);
-                        return; 
-                    }}
+                    line.removeAttribute('visibility');
 
                     line.setAttribute('x1', sourceNode.x + (dx * sourceRadius / dist) );
                     line.setAttribute('y1', sourceNode.y + (dy * sourceRadius / dist) );
-                    line.setAttribute('x2', targetNode.x - (dx * targetRadius / dist) ); 
-                    line.setAttribute('y2', targetNode.y - (dy * targetRadius / dist) ); 
+                    line.setAttribute('x2', targetNode.x - (dx * targetRadius / dist) );
+                    line.setAttribute('y2', targetNode.y - (dy * targetRadius / dist) );
 
                     line.setAttribute('stroke', '#546E7A');
                     line.setAttribute('stroke-width', 2);
                     line.setAttribute('marker-end', 'url(#arrowhead)');
                 }}
 
-                updateConnectedEdges(nodeId) {{
+                _removeEdgesConnectedTo(nodeId) {{
                     const edgesToRemove = [];
                     this.edges.forEach((edge, edgeId) => {{
                         if (edge.source === nodeId || edge.target === nodeId) {{
                             edgesToRemove.push(edgeId);
-                            const edgeElement = document.getElementById(edgeId);
-                            if (edgeElement) edgeElement.remove();
+                            document.getElementById(edgeId)?.remove();
                         }}
                     }});
                     edgesToRemove.forEach(edgeId => this.edges.delete(edgeId));
+                }}
+
+                updateConnectedEdges(nodeId) {{
+                    this._removeEdgesConnectedTo(nodeId);
 
                     const nodeData = this.nodes.get(nodeId);
                     if (nodeData && nodeData.parentId && this.nodes.has(nodeData.parentId)) {{
@@ -1053,12 +1064,18 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     document.getElementById('totalCategories').textContent = categoriesInMap.size;
                 }}
 
+                _escapeHtml(value) {{
+                    const div = document.createElement('div');
+                    div.textContent = value == null ? '' : String(value);
+                    return div.innerHTML;
+                }}
+
                 showTooltip(event, nodeData) {{
                     if (nodeData.isCentral) return;
                     this.tooltip.innerHTML = `
-                        <div style="font-weight: bold; margin-bottom: 8px; color: #FF9900;">${{nodeData.name}}</div>
-                        <div style="margin-bottom: 6px;"><strong>Categoria:</strong> ${{nodeData.category}}</div>
-                        <div><strong>Descrição:</strong> ${{nodeData.description || 'N/A'}}</div>
+                        <div style="font-weight: bold; margin-bottom: 8px; color: #FF9900;">${{this._escapeHtml(nodeData.name)}}</div>
+                        <div style="margin-bottom: 6px;"><strong>Categoria:</strong> ${{this._escapeHtml(nodeData.category)}}</div>
+                        <div><strong>Descrição:</strong> ${{this._escapeHtml(nodeData.description) || 'N/A'}}</div>
                     `;
                     this.tooltip.style.display = 'block';
                     this.updateTooltipPosition(event);
@@ -1076,17 +1093,10 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                 }}
 
                 saveMindMapState() {{
-                    if (this.nodes.size === 0 ){{
-                       this.showNotification("Mapa está vazio. Nada para salvar.", "info");
-                       return;
-                    }}
-                    if (this.nodes.size === 1 && this.nodes.has(AWS_CENTER_ID)) {{
-                        const values = Array.from(this.nodes.values());
-                        const edges = Array.from(this.edges.values());
-                        if (values.length === 1 && values[0].id === AWS_CENTER_ID && edges.length === 0) {{
-                           this.showNotification("O mapa contém apenas o nó central AWS sem conexões. Adicione mais nós para salvar.", "info");
-                           return;
-                        }}
+                    const hasContent = Array.from(this.nodes.keys()).some(id => id !== AWS_CENTER_ID);
+                    if (!hasContent) {{
+                        this.showNotification("O mapa contém apenas o nó central AWS. Adicione mais nós para salvar.", "info");
+                        return;
                     }}
 
                     const nodesArray = Array.from(this.nodes.values());
@@ -1112,7 +1122,9 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     const file = event.target.files[0];
                     if (!file) return;
 
-                    if (file.type !== "application/json") {{
+                    // Valida pela extensão: o MIME type de .json varia entre SO/navegadores
+                    // (pode vir vazio ou "text/plain"), o que rejeitaria arquivos válidos
+                    if (!file.name.toLowerCase().endsWith('.json')) {{
                         this.showNotification("Por favor, selecione um arquivo JSON (.json) válido.", "error");
                         event.target.value = null;
                         return;
@@ -1220,11 +1232,16 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                         this.selectNode(this.nodes.keys().next().value);
                     }}
 
-                    if (loadedData.viewBox) {{
-                        this.currentViewBox = loadedData.viewBox;
+                    // viewBox malformado no arquivo geraria atributo SVG inválido e o mapa sumiria
+                    const vb = loadedData.viewBox;
+                    const vbValid = vb &&
+                        ['x', 'y', 'width', 'height'].every(k => typeof vb[k] === 'number' && isFinite(vb[k])) &&
+                        vb.width > 0 && vb.height > 0;
+                    if (vbValid) {{
+                        this.currentViewBox = {{ x: vb.x, y: vb.y, width: vb.width, height: vb.height }};
                         this.updateViewBoxAttribute();
                     }} else {{
-                         this.resetView(); 
+                         this.resetView();
                     }}
                 }}
 
@@ -1233,27 +1250,6 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     this.showNotification('Preparando PDF... Por favor, aguarde.', 'info');
                     const {{ jsPDF }} = window.jspdf;
                     const pdf = new jsPDF({{ orientation: 'landscape', unit: 'pt', format: 'a4' }});
-                    
-                    const svgElement = this.canvas;
-                    const canvasContainer = svgElement.parentNode; 
-
-                    const originalViewBox = svgElement.getAttribute('viewBox');
-                    const originalSvgWidth = svgElement.style.width;
-                    const originalSvgHeight = svgElement.style.height;
-                    
-                    const originalContainerWidth = canvasContainer.style.width;
-                    const originalContainerHeight = canvasContainer.style.height;
-                    const originalContainerOverflow = canvasContainer.style.overflow;
-
-                    const defsElement = svgElement.querySelector('defs');
-                    let defsParentNode = null;
-                    let originalDefsNextSibling = null; 
-
-                    if (defsElement) {{
-                        defsParentNode = defsElement.parentNode;
-                        originalDefsNextSibling = defsElement.nextSibling; 
-                        defsParentNode.removeChild(defsElement); 
-                    }}
 
                     try {{
                         pdf.setFontSize(20); 
@@ -1264,13 +1260,7 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                         pdf.text(appTitle, (pageWidthForTitle - appTitleWidth) / 2, 40);
 
 
-                        if (this.nodes.size === 0) {{
-                            this.showNotification('Nada para exportar no mapa.', 'warning');
-                            return;
-                        }}
-
                         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-                        let hasAnyContentToExport = false;
 
                         if (this.nodes.size === 1 && this.nodes.has(AWS_CENTER_ID)) {{
                             const centralElem = document.getElementById(AWS_CENTER_ID);
@@ -1282,11 +1272,9 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                             minY = this.currentViewBox.y;
                             maxX = this.currentViewBox.x + this.currentViewBox.width;
                             maxY = this.currentViewBox.y + this.currentViewBox.height;
-                            hasAnyContentToExport = true;
                         }} else {{
                             this.nodes.forEach(node => {{
                                 if (node.x !== undefined && node.y !== undefined) {{
-                                    hasAnyContentToExport = true;
                                     const nodeElem = document.getElementById(node.id);
                                     let nodeWidth = 100; 
                                     let nodeHeight = 40; 
@@ -1315,43 +1303,52 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                             }});
                         }}
 
-                        if (!hasAnyContentToExport) {{
-                            this.showNotification('Nenhum conteúdo desenhável encontrado para exportar.', 'warning');
-                            return;
-                        }}
-
                         const contentWidth = Math.max(maxX - minX, 100);
                         const contentHeight = Math.max(maxY - minY, 100);
-                        
-                        svgElement.setAttribute('viewBox', `${{minX}} ${{minY}} ${{contentWidth}} ${{contentHeight}}`);
-                        
+
                         const captureWidth = Math.max(contentWidth, 1200);
                         const captureHeight = (captureWidth / contentWidth) * contentHeight;
-                        
-                        svgElement.style.width = `${{captureWidth}}px`;
-                        svgElement.style.height = `${{captureHeight}}px`;
 
-                        canvasContainer.style.width = `${{captureWidth}}px`;
-                        canvasContainer.style.height = `${{captureHeight}}px`;
-                        canvasContainer.style.overflow = 'visible';
+                        // Rasteriza o SVG com o renderizador nativo do navegador (em vez de
+                        // html2canvas, que não suporta marker/filter — o PDF saía sem as setas
+                        // e sem as sombras). Trabalha numa cópia: o mapa em exibição não é tocado.
+                        const svgClone = this.canvas.cloneNode(true);
+                        svgClone.setAttribute('viewBox', `${{minX}} ${{minY}} ${{contentWidth}} ${{contentHeight}}`);
+                        svgClone.setAttribute('width', captureWidth);
+                        svgClone.setAttribute('height', captureHeight);
+                        svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                        svgClone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+                        // CSS da página não se aplica a SVG carregado como imagem:
+                        // remove o fundo pontilhado e fixa a fonte dos textos
+                        svgClone.style.backgroundImage = 'none';
+                        svgClone.style.fontFamily = "'Helvetica Neue', Helvetica, Arial, sans-serif";
 
+                        const svgString = new XMLSerializer().serializeToString(svgClone);
+                        const svgUrl = URL.createObjectURL(new Blob([svgString], {{ type: 'image/svg+xml;charset=utf-8' }}));
 
-                        await new Promise(resolve => setTimeout(resolve, 450)); 
+                        let imgData;
+                        try {{
+                            const svgImage = new Image();
+                            await new Promise((resolve, reject) => {{
+                                svgImage.onload = resolve;
+                                svgImage.onerror = () => reject(new Error('Falha ao rasterizar o mapa para imagem.'));
+                                svgImage.src = svgUrl;
+                            }});
 
-                        const canvasImage = await html2canvas(canvasContainer, {{ 
-                            backgroundColor: '#f8f9fa',
-                            scale: 1, 
-                            useCORS: true,
-                            logging: false, 
-                            width: captureWidth,
-                            height: captureHeight,
-                            x: 0, 
-                            y: 0, 
-                            windowWidth: captureWidth, 
-                            windowHeight: captureHeight 
-                        }});
+                            const exportScale = 2; // 2x para nitidez no PDF
+                            const rasterCanvas = document.createElement('canvas');
+                            rasterCanvas.width = Math.round(captureWidth * exportScale);
+                            rasterCanvas.height = Math.round(captureHeight * exportScale);
+                            const ctx = rasterCanvas.getContext('2d');
+                            ctx.fillStyle = '#f8f9fa';
+                            ctx.fillRect(0, 0, rasterCanvas.width, rasterCanvas.height);
+                            ctx.drawImage(svgImage, 0, 0, rasterCanvas.width, rasterCanvas.height);
 
-                        const imgData = canvasImage.toDataURL('image/png', 0.95);
+                            imgData = rasterCanvas.toDataURL('image/png');
+                        }} finally {{
+                            URL.revokeObjectURL(svgUrl);
+                        }}
+
                         const imgProps = pdf.getImageProperties(imgData);
                         
                         const titleAreaHeight = 60; 
@@ -1416,22 +1413,6 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
                     }} catch (error) {{
                         console.error("[MINDMAP PDF] Erro detalhado ao gerar PDF:", error);
                         this.showNotification(`Falha ao gerar PDF: ${{error.message || 'Erro desconhecido'}}`, 'error');
-                    }} finally {{
-                        if(originalViewBox) svgElement.setAttribute('viewBox', originalViewBox);
-                        svgElement.style.width = originalSvgWidth || '100%';
-                        svgElement.style.height = originalSvgHeight || '100%';
-                        
-                        canvasContainer.style.width = originalContainerWidth;
-                        canvasContainer.style.height = originalContainerHeight;
-                        canvasContainer.style.overflow = originalContainerOverflow;
-                        
-                        if (defsElement && defsParentNode) {{
-                            if (originalDefsNextSibling) {{
-                                defsParentNode.insertBefore(defsElement, originalDefsNextSibling);
-                            }} else {{
-                                defsParentNode.appendChild(defsElement);
-                            }}
-                        }}
                     }}
                 }}
             }} // Fim da classe AWSMindMapPro
@@ -1461,67 +1442,66 @@ def create_mindmap_html(df, csv_filename, logo_info_tuple):
     '''
     return html_content
 
-app_logo_info = None 
+def apply_page_style():
+    """CSS global: esconde a barra padrão do Streamlit e remove espaçamentos extras."""
+    st.markdown("""
+    <style>
+        .main {
+            background-color: #ffffff;
+            color: #333333;
+        }
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 0rem;
+        }
+        /* Esconde completamente todos os elementos da barra padrão do Streamlit */
+        header {display: none !important;}
+        footer {display: none !important;}
+        #MainMenu {display: none !important;}
+        /* Remove qualquer espaço em branco adicional
+           (stAppViewBlockContainer foi renomeado para stMainBlockContainer
+           em versões mais novas do Streamlit — mantém os dois seletores) */
+        div[data-testid="stAppViewBlockContainer"],
+        div[data-testid="stMainBlockContainer"] {
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        div[data-testid="stVerticalBlock"] {
+            gap: 0 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        /* Remove quaisquer margens extras */
+        .element-container {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 def main():
     """Função principal da aplicação"""
-    global app_logo_info
+    apply_page_style()
 
-    df, csv_filename = load_csv_data()
+    df, load_error = load_csv_data()
 
-    if df.empty:
+    if load_error:
+        st.error(load_error)
         st.info("Por favor, adicione um arquivo CSV válido na pasta raiz para gerar o mapa mental.")
         st.stop()
 
-    if app_logo_info is None: 
-        logo_b64, logo_ext = get_aws_logo_base64()
-        if logo_b64:
-            app_logo_info = (logo_b64, logo_ext)
-        else:
-            app_logo_info = (None, None) 
+    logo_info = get_aws_logo_base64()
 
-    html_content = create_mindmap_html(df, csv_filename, app_logo_info)
+    html_content = create_mindmap_html(df, logo_info)
 
     st.components.v1.html(
         html_content,
-        height=900, 
+        height=900,
         scrolling=False
     )
 
 if __name__ == "__main__":
     main()
-
-st.markdown("""
-<style>
-    .main {
-        background-color: #ffffff;
-        color: #333333;
-    }
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 0rem;
-    }
-    /* Esconde completamente todos os elementos da barra padrão do Streamlit */
-    header {display: none !important;}
-    footer {display: none !important;}
-    #MainMenu {display: none !important;}
-    /* Remove qualquer espaço em branco adicional */
-    div[data-testid="stAppViewBlockContainer"] {
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-    }
-    div[data-testid="stVerticalBlock"] {
-        gap: 0 !important;
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-    }
-    /* Remove quaisquer margens extras */
-    .element-container {
-        margin-top: 0 !important;
-        margin-bottom: 0 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 st.markdown("""
 <div style="text-align: center;">
